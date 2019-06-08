@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.5.1;
 
 // ----------------------------------------------------------------------------
 // '0xBitcoin Token' contract
@@ -53,9 +53,9 @@ library ExtendedMath {
 // ----------------------------------------------------------------------------
 
 contract ERC20Interface {
-    function totalSupply() public constant returns (uint);
-    function balanceOf(address tokenOwner) public constant returns (uint balance);
-    function allowance(address tokenOwner, address spender) public constant returns (uint remaining);
+    function totalSupply() public view returns (uint);
+    function balanceOf(address tokenOwner) public view returns (uint balance);
+    function allowance(address tokenOwner, address spender) public view returns (uint remaining);
     function transfer(address to, uint tokens) public returns (bool success);
     function approve(address spender, uint tokens) public returns (bool success);
     function transferFrom(address from, address to, uint tokens) public returns (bool success);
@@ -69,7 +69,7 @@ contract ERC20Interface {
 //
 // ----------------------------------------------------------------------------
 contract ApproveAndCallFallBack {
-    function receiveApproval(address from, uint256 tokens, address token, bytes data) public;
+    function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public;
 }
 
 
@@ -82,7 +82,7 @@ contract Owned {
     address public newOwner;
     event OwnershipTransferred(address indexed _from, address indexed _to);
 
-    function Owned() public {
+    constructor() public {
         owner = msg.sender;
     }
 
@@ -97,7 +97,7 @@ contract Owned {
 
     function acceptOwnership() public {
         require(msg.sender == newOwner);
-        OwnershipTransferred(owner, newOwner);
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
         newOwner = address(0);
     }
@@ -119,16 +119,16 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     uint public _totalSupply;
 
     uint public latestDifficultyPeriodStarted;
-    uint public epochCount;//number of 'blocks' mined
+    uint public epochCount;
     uint public _BLOCKS_PER_READJUSTMENT = 1024;
 
-    //a little number
     uint public  _MINIMUM_TARGET = 2**16;
-
     uint public  _MAXIMUM_TARGET = 2**234;
 
+    uint256 public basePercent = 100;
+
     uint public miningTarget;
-    bytes32 public challengeNumber;   //generate a new one when a new reward is minted
+    bytes32 public challengeNumber;
     uint public rewardEra;
     uint public maxSupplyForEra;
     address public lastRewardTo;
@@ -145,7 +145,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
-    function _0xBitcoinToken() public onlyOwner{
+    constructor() public onlyOwner{
 
         symbol = "0xBTC";
         name = "0xBitcoin Token";
@@ -203,7 +203,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
         lastRewardEthBlockNumber = block.number;
 
         _startNewMiningEpoch();
-        Mint(msg.sender, reward_amount, epochCount, challengeNumber );
+        emit Mint(msg.sender, reward_amount, epochCount, challengeNumber );
         return true;
     }
 
@@ -279,22 +279,22 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     }
 
     //this is a recent ethereum block hash, used to prevent pre-mining future blocks
-    function getChallengeNumber() public constant returns (bytes32) {
+    function getChallengeNumber() public view returns (bytes32) {
         return challengeNumber;
     }
 
     //the number of zeroes the digest of the PoW solution requires.  Auto adjusts
-    function getMiningDifficulty() public constant returns (uint) {
+    function getMiningDifficulty() public view returns (uint) {
         return _MAXIMUM_TARGET.div(miningTarget);
     }
 
-    function getMiningTarget() public constant returns (uint) {
+    function getMiningTarget() public view returns (uint) {
        return miningTarget;
     }
 
     //21m coins total
     //reward begins at 50 and is cut in half every reward era (as tokens are mined)
-    function getMiningReward() public constant returns (uint) {
+    function getMiningReward() public view returns (uint) {
         //once we get half way thru the coins, only get 25 per block
          //every reward era, the reward amount halves.
          return (50 * 10**uint(decimals) ).div( 2**rewardEra ) ;
@@ -316,14 +316,14 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // ------------------------------------------------------------------------
     // Total supply
     // ------------------------------------------------------------------------
-    function totalSupply() public constant returns (uint) {
+    function totalSupply() public view returns (uint) {
         return _totalSupply  - balances[address(0)];
     }
 
     // ------------------------------------------------------------------------
     // Get the token balance for account `tokenOwner`
     // ------------------------------------------------------------------------
-    function balanceOf(address tokenOwner) public constant returns (uint balance) {
+    function balanceOf(address tokenOwner) public view returns (uint balance) {
         return balances[tokenOwner];
     }
 
@@ -332,15 +332,15 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // - Owner's account must have sufficient balance to transfer
     // - 0 value transfers are allowed
     // ------------------------------------------------------------------------
-    function transfer(address to, uint tokens) public returns (bool success) {
-        require(value <= _balances[msg.sender]);
+    function transfer(address to, uint value) public returns (bool success) {
+        require(value <= balances[msg.sender]);
         require(to != address(0));
 
         uint256 tokensToBurn = findOnePercent(value);
         uint256 tokensToTransfer = value.sub(tokensToBurn);
 
-        _balances[msg.sender] = _balances[msg.sender].sub(value);
-        _balances[to] = _balances[to].add(tokensToTransfer);
+        balances[msg.sender] = balances[msg.sender].sub(value);
+        balances[to] = balances[to].add(tokensToTransfer);
 
         _totalSupply = _totalSupply.sub(tokensToBurn);
 
@@ -365,7 +365,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // ------------------------------------------------------------------------
     function approve(address spender, uint tokens) public returns (bool success) {
         allowed[msg.sender][spender] = tokens;
-        Approval(msg.sender, spender, tokens);
+        emit Approval(msg.sender, spender, tokens);
         return true;
     }
 
@@ -378,11 +378,24 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // - Spender must have sufficient allowance to transfer
     // - 0 value transfers are allowed
     // ------------------------------------------------------------------------
-    function transferFrom(address from, address to, uint tokens) public returns (bool success) {
-        balances[from] = balances[from].sub(tokens);
-        allowed[from][msg.sender] = allowed[from][msg.sender].sub(tokens);
-        balances[to] = balances[to].add(tokens);
-        Transfer(from, to, tokens);
+    function transferFrom(address from, address to, uint value) public returns (bool success) {
+        require(value <= balances[from]);
+        require(value <= allowed[from][msg.sender]);
+        require(to != address(0));
+
+        balances[from] = balances[from].sub(value);
+
+        uint256 tokensToBurn = findOnePercent(value);
+        uint256 tokensToTransfer = value.sub(tokensToBurn);
+
+        balances[to] = balances[to].add(tokensToTransfer);
+        _totalSupply = _totalSupply.sub(tokensToBurn);
+
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
+
+        emit Transfer(from, to, tokensToTransfer);
+        emit Transfer(from, address(0), tokensToBurn);
+
         return true;
     }
 
@@ -390,26 +403,41 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // Returns the amount of tokens approved by the owner that can be
     // transferred to the spender's account
     // ------------------------------------------------------------------------
-    function allowance(address tokenOwner, address spender) public constant returns (uint remaining) {
+    function allowance(address tokenOwner, address spender) public view returns (uint remaining) {
         return allowed[tokenOwner][spender];
     }
+
+    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+        require(spender != address(0));
+        allowed[msg.sender][spender] = (allowed[msg.sender][spender].add(addedValue));
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+        return true;
+    }
+
+    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+        require(spender != address(0));
+        allowed[msg.sender][spender] = (allowed[msg.sender][spender].sub(subtractedValue));
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+        return true;
+    }
+
 
     // ------------------------------------------------------------------------
     // Token owner can approve for `spender` to transferFrom(...) `tokens`
     // from the token owner's account. The `spender` contract function
     // `receiveApproval(...)` is then executed
     // ------------------------------------------------------------------------
-    function approveAndCall(address spender, uint tokens, bytes data) public returns (bool success) {
+    function approveAndCall(address spender, uint tokens, bytes memory data) public returns (bool success) {
         allowed[msg.sender][spender] = tokens;
-        Approval(msg.sender, spender, tokens);
-        ApproveAndCallFallBack(spender).receiveApproval(msg.sender, tokens, this, data);
+        emit Approval(msg.sender, spender, tokens);
+        ApproveAndCallFallBack(spender).receiveApproval(msg.sender, tokens, address(this), data);
         return true;
     }
 
     // ------------------------------------------------------------------------
     // Don't accept ETH
     // ------------------------------------------------------------------------
-    function () public payable {
+    function () external payable {
         revert();
     }
 
@@ -425,5 +453,24 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
         uint256 roundValue = value.ceil(basePercent);
         uint256 onePercent = roundValue.mul(basePercent).div(10000);
         return onePercent;
+    }
+
+    // Burny things
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal {
+        require(amount != 0);
+        require(amount <= balances[account]);
+        totalSupply = totalSupply.sub(amount);
+        balances[account] = balances[account].sub(amount);
+        emit Transfer(account, address(0), amount);
+    }
+
+    function burnFrom(address account, uint256 amount) external {
+        require(amount <= allowed[account][msg.sender]);
+        allowed[account][msg.sender] = allowed[account][msg.sender].sub(amount);
+        _burn(account, amount);
     }
 }
