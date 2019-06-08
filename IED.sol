@@ -180,7 +180,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
 
     function mint(uint256 nonce, bytes32 challenge_digest) public returns (bool success) {
         //the PoW must contain work that includes a recent ethereum block hash (challenge number) and the msg.sender's address to prevent MITM attacks
-        bytes32 digest =  keccak256(challengeNumber, msg.sender, nonce );
+        bytes32 digest =  keccak256(abi.encodePacked(challengeNumber, msg.sender, nonce));
 
         //the challenge digest must match the expected
         if (digest != challenge_digest) revert();
@@ -240,7 +240,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
 
       //make the latest ethereum block hash a part of the next challenge for PoW to prevent pre-mining future blocks
       //do this last since this is a protection mechanism in the mint() function
-      challengeNumber = block.blockhash(block.number - 1);
+      challengeNumber = blockhash(block.number - 1);
     }
 
     // https://en.bitcoin.it/wiki/Difficulty#What_is_the_formula_for_difficulty.3F
@@ -308,13 +308,13 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
 
 
     function getMintDigest(uint256 nonce, bytes32 challenge_digest, bytes32 challenge_number) public view returns (bytes32 digesttest) {
-        bytes32 digest = keccak256(challenge_number,msg.sender,nonce);
+        bytes32 digest = keccak256(abi.encodePacked(challenge_number,msg.sender,nonce));
         return digest;
     }
 
     
     function checkMintSolution(uint256 nonce, bytes32 challenge_digest, bytes32 challenge_number, uint testTarget) public view returns (bool success) {
-        bytes32 digest = keccak256(challenge_number,msg.sender,nonce);
+        bytes32 digest = keccak256(abi.encodePacked(challenge_number,msg.sender,nonce));
         if(uint256(digest) > testTarget) revert();
         return (digest == challenge_digest);
     }
