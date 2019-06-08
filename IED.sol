@@ -37,6 +37,12 @@ library SafeMath {
         require(b > 0);
         c = a / b;
     }
+    
+    function ceil(uint256 a, uint256 m) internal pure returns (uint256) {
+        uint256 c = add(a,m);
+        uint256 d = sub(c,1);
+        return mul(div(d,m),m);
+    }
 }
 
 library ExtendedMath {
@@ -463,7 +469,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     function _burn(address account, uint256 amount) internal {
         require(amount != 0);
         require(amount <= balances[account]);
-        totalSupply = totalSupply.sub(amount);
+        _totalSupply = _totalSupply.sub(amount);
         balances[account] = balances[account].sub(amount);
         emit Transfer(account, address(0), amount);
     }
