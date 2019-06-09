@@ -1,11 +1,11 @@
 pragma solidity ^0.5.1;
 
 // ----------------------------------------------------------------------------
-// '0xBitcoin Token' contract
-// Mineable ERC20 Token using Proof Of Work
+// '0xBitBomb Token' contract
+// Deflationary, mineable ERC20 Token using Proof Of Work 
 //
-// Symbol      : 0xIED
-// Name        : 0xBitcoin Bomb Token
+// Symbol      : 0xBOM
+// Name        : 0xBitBomb Token
 // Total supply: 21,000,000.00
 // Decimals    : 8
 //
@@ -72,7 +72,6 @@ contract ERC20Interface {
 
 // ----------------------------------------------------------------------------
 // Contract function to receive approval and execute function in one call
-//
 // ----------------------------------------------------------------------------
 contract ApproveAndCallFallBack {
     function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public;
@@ -153,8 +152,8 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
     // ------------------------------------------------------------------------
     constructor() public onlyOwner{
 
-        symbol = "0xBTC";
-        name = "0xBitcoin Token";
+        symbol = "0xBOM";
+        name = "0xBitcoin Bomb";
         decimals = 8;
 
         _totalSupply = 21000000 * 10**uint(decimals);
@@ -312,7 +311,7 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
         return digest;
     }
 
-    
+
     function checkMintSolution(uint256 nonce, bytes32 challenge_digest, bytes32 challenge_number, uint testTarget) public view returns (bool success) {
         bytes32 digest = keccak256(abi.encodePacked(challenge_number,msg.sender,nonce));
         if(uint256(digest) > testTarget) revert();
@@ -454,14 +453,17 @@ contract _0xBitcoinToken is ERC20Interface, Owned {
         return ERC20Interface(tokenAddress).transfer(owner, tokens);
     }
 
+    // ------------------------------------------------------------------------
     // Get one percent
+    // ------------------------------------------------------------------------
     function findOnePercent(uint256 value) public view returns (uint256) {
         uint256 roundValue = value.ceil(basePercent);
         uint256 onePercent = roundValue.mul(basePercent).div(10000);
         return onePercent;
     }
-
-    // Burny things
+    // ------------------------------------------------------------------------
+    // Burn functions
+    // ------------------------------------------------------------------------
     function burn(uint256 amount) external {
         _burn(msg.sender, amount);
     }
